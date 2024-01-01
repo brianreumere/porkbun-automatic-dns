@@ -1,7 +1,7 @@
 #!/bin/sh
 
 usage() {
-    printf "\\nporkbun-automatic-dns: Dynamic DNS shell script for Porkbun.
+    printf "\\nporkbun-automatic-dns: Dynamic DNS shell script for Porkbun
 
 Usage: %s [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r \"RECORD-NAMES\"
 
@@ -202,10 +202,10 @@ check_api_error() {
 update() {
     while [ ! -z "$1" ]; do
         new_record_json=$(rest "POST" "dns/editByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
-        check_api_error "$new_record_json"
         if [ "$debug" = "yes" ]; then
             printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
         fi
+        check_api_error "$new_record_json"
         shift
     done
 }
@@ -219,10 +219,10 @@ update() {
 create() {
     while [ ! -z "$1" ]; do
         new_record_json=$(rest "POST" "dns/create/${domain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"name\": \"${1}\", \"type\": \"${record_type}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
-        check_api_error "$new_record_json"
         if [ "$debug" = "yes" ]; then
             printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
         fi
+        check_api_error "$new_record_json"
         shift
     done
 }
@@ -237,10 +237,10 @@ create() {
 check() {
     while [ ! -z "$1" ]; do
         record_json=$(rest "POST" "dns/retrieveByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\"}")
-        check_api_error "$record_json"
         if [ "$debug" = "yes" ]; then
             printf "record_json:\\n---\\n%s\\n---\\n\\n" "$record_json"
         fi
+        check_api_error "$record_json"
         record_value=$(get_json_field "content" "$record_json")
         if [ "$debug" = "yes" ]; then
             printf "record_value:\\n---\\n%s\\n---\\n\\n" "$record_value"
