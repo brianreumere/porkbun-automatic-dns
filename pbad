@@ -1,0 +1,332 @@
+#!/bin/sh
+
+usage() {
+    printf "\\nporkbun-automatic-dns: Dynamic DNS shell script for Porkbun.
+
+Usage: %s [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r \"RECORD-NAMES\"
+
+-h: Print this usage info and exit
+-6: Update AAAA record(s) instead of A record(s)
+-f: Overwrite an existing DNS record regardless of IP address or TTL discrepancy
+-t: Just print the updates that would be made without actually creating or updating any DNS records
+-e: Print debugging information to stdout
+-v: Print information to stdout even if an update isn't needed
+-s: Use stdin instead of OpenDNS to determine external IP address
+
+-i EXT_IF: The name of your external network interface (optional, if provided uses ifconfig instead of OpenDNS to determine external IP address
+-p KEYFILE: Path to the file that contains your comma-separated Porkbun API key and secret key (defaults to ~/.porkbunapi)
+-a APIKEY,SECRETKEY: Your Porkbun API key and secret key, separated by a comma (optional, loaded from a file if not specified)
+-l TTL: Set a custom TTL on records (optional, and only supported on LiveDNS)
+-d EXAMPLE.COM: The domain to create or update DNS records for (required)
+-r \"RECORD-NAMES\": A space-separated list of the name(s) of the A or AAAA record(s) to update or create (required)
+
+pbad version: ${pbad_version}\\n\\n" "$0"
+    exit 1
+}
+
+#
+# Set script version
+#
+
+pbad_version="0.0.1"
+
+#
+# Process parameters
+#
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h) help="yes";;
+        -6) ipv6="yes";;
+        -f) force="yes";;
+        -t) testing="yes";;
+        -e) debug="yes";;
+        -v) verbose="yes";;
+        -s) stdin_ip="yes";;
+        -i) ext_if="$2"; shift;;
+        -p) keyfile="$2"; shift;;
+        -a) apikeyarg="$2"; shift;;
+        -l) ttl="$2"; shift;;
+        -d) domain="$2"; shift;;
+        -r) records="$2"; shift;;
+        *) usage; break
+    esac
+    shift
+done
+if [ -z "$domain" -o -z "$records" -o "$help" = "yes" ]; then
+    usage
+fi
+if [ ! -z "$apikeyarg" -a ! -z "$keyfile" ]; then
+    printf "The -p and -a flags are incompatible. Only specify an API key and secret key using one of these methods.\\n"
+    exit 1
+fi
+if [ -z "$apikeyarg" ]; then
+    if [ -z "$keyfile" ]; then
+        keyfile="${HOME}/.porkbunapi"
+    fi
+    if [ -f "$keyfile" ]; then
+        keyfile_contents=$(cat "$keyfile")
+        apikey=$(printf "%s" "$keyfile_contents" | cut -d , -f 1 | tr -d ' ')
+        secretkey=$(printf "%s" "$keyfile_contents" | cut -d , -f 2 | tr -d ' ')
+    else
+        printf "Could not load API key and secret key from -a flag or %s.\\n" "$keyfile"
+        exit 1
+    fi
+else
+    apikey=$(printf "%s" "$apikeyarg" | cut -d , -f 1 | tr -d ' ')
+    secretkey=$(printf "%s" "$apikeyarg" | cut -d , -f 2 | tr -d ' ')
+fi
+if [ "$ipv6" = "yes" ]; then
+    record_type="AAAA"
+    ip_regex="\([0-9A-Fa-f:]*\)"
+    inet="inet6"
+else
+    record_type="A"
+    ip_regex="\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\)"
+    inet="inet"
+fi
+if [ "$debug" = "yes" ]; then
+    printf "Initial variables:\\n---\\napikey = %s\\nsecretkey = %s\\ndomain = %s\\nrecords = %s\\nttl (only relevant with LiveDNS) = %s\\nrecord_type = %s\\nip_regex = %s\\n---\\n\\n" "$apikey" "$secretkey" "$domain" "$records" "$ttl" "$record_type" "$ip_regex"
+fi
+
+#
+# Set API address
+#
+
+porkbun="porkbun.com:443"
+
+#
+# Function to call Porkbun's v3 API
+#
+# $1 is the HTTP verb. Only POST is used by the Porkbun API.
+# $2 is the API endpoint
+# $3 is the body of the request. If the verb is GET and a third parameter is
+#    provided, it is ignored.
+#
+
+rest() {
+    if [ "$debug" = "yes" ]; then
+        printf "REST call to endpoint:\\n---\\n%s\\n---\\n\\n" "$2" 1>&2
+    fi
+    # Throw away third argument to function if verb is GET
+    if [ "$1" != "GET" ]; then
+        tmp_json="$3"
+    fi
+    tmp_request="${1} /api/json/v3/${2} HTTP/1.1
+User-Agent: Porkbun Automatic DNS/pbad shell script/${pbad_version}
+Host: $(printf "%s" "$porkbun" | cut -d : -f 1)
+Connection: close
+Content-Type: application/json
+Content-Length: $(printf "%s" "$tmp_json" | wc -c | tr -d "[:space:]")
+
+"
+    if [ "$1" != "GET" ]; then
+        tmp_message="${tmp_request}${tmp_json}"
+    else
+        tmp_message="$tmp_request"
+    fi
+    if [ "$debug" = "yes" ]; then
+        printf "Sending REST message tmp_message:\\n---\\n%s\\n---\\n\\n" "$tmp_message" 1>&2
+    fi
+    printf "%s" "$tmp_message" | openssl s_client -quiet -connect "$porkbun" 2> /dev/null | tail -1
+    unset tmp_json
+    unset tmp_request
+    unset tmp_message
+}
+
+#
+# Function to get a specified field from JSON
+#
+#
+# This probably won't work with arbitrary JSON for input, but it works for the
+# JSON that is returned by the Porkbun API endpoints that are used by this
+# script. The function returns nothing if the field isn't found. Parent fields
+# of a field are ignored. If any duplicate child fields are found, the function
+# fails (this usually indicates multiple DNS records were returned, which is not
+# supported.
+#
+# $1 is the field that you want to get the value of
+# $2 is the JSON content
+#
+
+get_json_field() {
+    # Set $updated_json to the provided JSON content
+    updated_json="$2"
+    # Trim our anything like a newline and split records on ',' or a colon
+    # followed by anything other than '"', then trim out all braces.
+    fields="$(printf "%s" "$updated_json" | tr -d '\t\n\r\f ' | awk 'BEGIN{RS=",|:[^\"]"}{print $0}' | tr -d '{}[]')"
+    # Check for duplicate field names (this is generally not supported, even
+    # when the fields are from separate dicts).
+    field_names=$(for i in $fields; do printf "%s" "$i" | cut -d : -f 1 | tr -d '"'; done)
+    field_names_count=$(printf "%s" "$field_names" | wc -l | tr -d ' ')
+    field_names_unique_count=$(printf "%s" "$field_names" | sort -u | wc -l | tr -d ' ')
+    if [ "$field_names_count" != "$field_names_unique_count" ]; then
+        printf "Found duplicate field names in JSON input. This may occur if there are multiple DNS records for a single value. This configuration is not supported by pbad.\\n"
+        exit 1
+    else
+        for i in $fields; do
+            field_name=$(printf "%s" "$i" | cut -d : -f 1 | tr -d '"')
+            field_value=$(printf "%s" "$i" | cut -d : -f 2- | tr -d '"')
+            # If the current field name matches the one we're looking for, print the
+            # value and break out of this loop
+            if [ "$field_name" = "$1" ]; then
+                printf "%s" "$field_value"
+                break
+            fi
+        done
+    fi
+}
+
+#
+# Function to check for errors
+#
+# $1 is the JSON returned by the API
+#
+
+check_api_error() {
+    json="$1"
+    status=$(get_json_field "status" "$json")
+    message=$(get_json_field "message" "$json")
+    if [ "$status" != "SUCCESS" ]; then
+        printf "%s status returned by API: %s\\n" "$status" "$message"
+        exit 1
+    fi
+}
+
+#
+# Function to update existing DNS records with a new value
+#
+# $1 is a space-separated list of record names to update
+#
+
+update() {
+    while [ ! -z "$1" ]; do
+        new_record_json=$(rest "POST" "dns/editByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
+        check_api_error "$new_record_json"
+        if [ "$debug" = "yes" ]; then
+            printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
+        fi
+        shift
+    done
+}
+
+#
+# Function to create new DNS records
+#
+# $1 is a space-separated list of record names to create
+#
+
+create() {
+    while [ ! -z "$1" ]; do
+        new_record_json=$(rest "POST" "dns/create/${domain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"name\": \"${1}\", \"type\": \"${record_type}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
+        check_api_error "$new_record_json"
+        if [ "$debug" = "yes" ]; then
+            printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
+        fi
+        shift
+    done
+}
+
+#
+# Function to check existing DNS information and see if it matches the external
+# IP address and desired TTL
+#
+# $1 is a space-separated list of record names to check
+#
+
+check() {
+    while [ ! -z "$1" ]; do
+        record_json=$(rest "POST" "dns/retrieveByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\"}")
+        check_api_error "$record_json"
+        if [ "$debug" = "yes" ]; then
+            printf "record_json:\\n---\\n%s\\n---\\n\\n" "$record_json"
+        fi
+        record_value=$(get_json_field "content" "$record_json")
+        if [ "$debug" = "yes" ]; then
+            printf "record_value:\\n---\\n%s\\n---\\n\\n" "$record_value"
+        fi
+        record_ttl=$(get_json_field "ttl" "$record_json")
+        # If a custom TTL wasn't provided, just set it to the existing one.
+        # If the record TTL is empty (because the record doesn't exist) and
+        # no custom TTL was provided, set a default.
+        if [ -z "$record_ttl" -a -z "$ttl" ]; then
+            new_ttl="10800"
+        elif [ -z "$ttl" ]; then
+            new_ttl="$record_ttl"
+        else
+            new_ttl="$ttl"
+        fi
+        if [ -z "$record_value" ]; then
+            if [ -z "$records_to_create" ]; then
+                records_to_create="$1"
+            else
+                records_to_create="${records_to_create} ${1}"
+            fi
+        elif [ "$ext_ip" != "$record_value" -o "$new_ttl" != "$record_ttl" -o "$force" = "yes" ]; then
+            if [ -z "$records_to_update" ]; then
+                records_to_update="$1"
+            else
+                records_to_update="${records_to_update} ${1}"
+            fi
+        fi
+        if [ "$debug" = "yes" ]; then
+            printf "Results after checking record:\\n---\\nrecord: %s\\nrecord_value: %s\\nrecords_to_create: %s\\nrecords_to_update: %s\\n---\\n\\n" "$1" "$record_value" "$records_to_create" "$records_to_update"
+        fi
+        shift
+    done
+}
+
+#
+# Get correct IP address
+#
+
+if [ "$stdin_ip" = "yes" ]; then
+    ext_ip_method="standard input"
+    read ext_ip
+elif [ ! -z "$ext_if" ]; then
+    ext_ip_method="ifconfig ${ext_if}"
+    ext_ip=$(ifconfig "$ext_if" | sed -n "s/.*${inet} \(addr:\)* *${ip_regex}.*/\2/p" | head -1)
+else
+    ext_ip_method="OpenDNS"
+    if [ "$record_type" = "A" ]; then
+        ext_ip=$(dig -4 "$record_type" +short @resolver1.opendns.com myip.opendns.com)
+    else
+        ext_ip=$(dig "$record_type" +short @resolver1.opendns.com myip.opendns.com)
+    fi
+fi
+if [ -z "$ext_ip" ]; then
+    printf "Failed to determine external IP address with %s. See above error.\\n" "$ext_ip_method"
+    exit 1
+fi
+if [ "$debug" = "yes" ]; then
+    printf "IP information:\\n---\\next_ip_method: %s\\next_ip: %s\\n---\\n\\n" "$ext_ip_method" "$ext_ip"
+fi
+
+#
+# Check values of records
+#
+
+set -f
+check $records
+set +f
+
+#
+# If there are any mismatches, update the incorrect records
+#
+
+if [ ! -z "$records_to_update" -o ! -z "$records_to_create" ]; then
+    if [ "$testing" != "yes" ]; then
+      set -f
+      update $records_to_update
+      create $records_to_create
+      set +f
+      printf "Set the following %s records to %s with TTL of %s seconds: %s %s\\n" "$record_type" "$ext_ip" "$new_ttl" "$records_to_update" "$records_to_create"
+    else
+      printf "Testing mode! Not sending any updates to the Porkbun API.\\nIn non-testing mode, we would have tried to set the following %s records to %s with TTL of %s seconds: %s %s\\n" "$record_type" "$ext_ip" "$new_ttl" "$records_to_update" "$records_to_create"
+    fi
+else
+    if [ "$verbose" = "yes" ]; then
+        printf "External IP address %s detected with %s and TTL value of %s matches records: %s. No update needed. Exiting.\\n" "$ext_ip" "$ext_ip_method" "$new_ttl" "$records"
+    fi
+    exit
+fi

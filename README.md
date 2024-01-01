@@ -1,6 +1,6 @@
 # pbad
 
-This script is intended to be used as a cron job to maintain the accuracy of multiple A or AAAA DNS records for a [Porkbun](https://porkbun.com/)-managed domain. External IP address discovery is done via a network interface, [OpenDNS](http://www.opendns.com), or a custom command piped to standard input. The result is compared to the value in the active version of the zonefile of each record in `RECORD-NAMES`.
+This script is intended to be used as a cron job to maintain the accuracy of multiple A or AAAA DNS records for a [Porkbun](https://porkbun.com/)-managed domain. External IP address discovery is done via a network interface, [OpenDNS](http://www.opendns.com), or a custom command piped to standard input. The result is compared to the value of each record in `RECORD-NAMES`.
 
 This project is inspired by [gandi-automatic-dns](https://github.com/brianreumere/gandi-automatic-dns).
 
@@ -52,7 +52,7 @@ Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY
 -a APIKEY,SECRETKEY: Your Porkbun API key and secret key, separated by a comma (optional, loaded from a file if not specified)
 -l TTL: Set a custom TTL on records (optional, and only supported on LiveDNS)
 -d EXAMPLE.COM: The domain to create or update DNS records for (required)
--r RECORD-NAMES: A space-separated list of the name(s) of the A or AAAA record(s) to update or create (required)
+-r "RECORD-NAMES": A space-separated list of the name(s) of the A or AAAA record(s) to update or create (required)
 ```
 
 # Function syntax
