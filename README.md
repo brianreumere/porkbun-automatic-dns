@@ -13,7 +13,7 @@ This project is inspired by [gandi-automatic-dns](https://github.com/brianreumer
   * Bourne shell
   * [curl](https://curl.se/) with HTTP2 support (7.33.0 or greater)
 
-By default, the script will automatically determine your public IP address using the [`ping` endpoint of the Porkbun API](https://porkbun.com/api/json/v3/documentation#Authentication). For most use cases, this default behavior should be fine. If you'd like to determine your public IP address from a network interface (using the `-i` flag) and your OS doesn't include the `ifconfig` command, you should install a package that provides it (commonly `net-tools`). You may also use the `-s` flag to pipe the output of an arbitrary command that determines your IP address to the standard input of `gad` (e.g., `curl ipinfo.io/ip | gad -s -a APIKEY,SECRETKEY -d EXAMPLE.com -r "RECORD-NAMES"`.
+By default, the script will automatically determine your public IP address using the [`ping` endpoint of the Porkbun API](https://porkbun.com/api/json/v3/documentation#Authentication). For most use cases, this default behavior should be fine. If you'd like to determine your public IP address from a network interface (using the `-i` flag) and your OS doesn't include the `ifconfig` command, you should install a package that provides it (commonly `net-tools`). You may also use the `-s` flag to pipe the output of an arbitrary command that determines your IP address to the standard input of `pbad` (e.g., `curl ipinfo.io/ip | pbad -s -a APIKEY,SECRETKEY -d EXAMPLE.com -r "RECORD-NAMES"`.
 
 # Installation
 
