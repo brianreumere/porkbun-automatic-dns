@@ -28,7 +28,7 @@ pbad version: ${pbad_version}\\n\\n" "$0"
 # Set script version
 #
 
-pbad_version="0.1.0"
+pbad_version="1.0.0"
 
 #
 # Process parameters
