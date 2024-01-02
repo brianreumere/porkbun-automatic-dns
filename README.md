@@ -19,7 +19,7 @@ By default, the script will automatically determine your public IP address using
 
 The simplest way to install `pbad` is to [download the latest release](https://github.com/brianreumere/porkbun-automatic-dns/releases/latest) and run the `pbad` script from the extracted directory. You can optionally add the extracted directory to your `PATH` environment variable or copy the `pbad` script to a location that is already included in your `PATH`.
 
-To set up a crontab entry to run `pbad` on a schedule, store your API key and secret key in the `~/.porkbunapi` file, separated by a comma (run `chmod 600 ~/.porkbunapi` to make sure no other users have permissions to this file), and then run `crontab -e` and add a line similar to the following (this example will run `pbad` every 15 minutes and update the `@` and `www` records of the domain `example.net`):
+To set up a crontab entry to run `pbad` on a schedule, store your API key and secret key in the `~/.porkbunapi` file separated by a comma (run `chmod 600 ~/.porkbunapi` to make sure no other users have permissions to this file), and then run `crontab -e` and add a line similar to the following (this example will run `pbad` every 15 minutes and update the `@` and `www` records of the domain `example.net`):
 
 ```
 0,15,30,45 * * * * /home/brian/bin/pbad -d example.net -r "@ www"
