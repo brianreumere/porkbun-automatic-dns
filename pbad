@@ -114,6 +114,8 @@ rest() {
         printf "REST call:\\n---\\nEndpoint: %s\\nData: %s\\n---\\n\\n" "$2" "$3" 1>&2
     fi
     rest_result=$(curl \
+        --silent \
+        --show-error \
         -H "User-Agent: Porkbun Automatic DNS/pbad shell script/${pbad_version}" \
         -H "Content-Type: application/json" \
         --http2 \
@@ -148,8 +150,8 @@ get_json_field() {
     # Check for duplicate field names (this is generally not supported, even
     # when the fields are from separate dicts).
     field_names=$(for i in $fields; do printf "%s" "$i" | cut -d : -f 1 | tr -d '"'; done)
-    field_names_count=$(printf "%s" "$field_names" | wc -l | tr -d ' ')
-    field_names_unique_count=$(printf "%s" "$field_names" | sort -u | wc -l | tr -d ' ')
+    field_names_count=$(printf "%s" "$field_names" | grep -c '')
+    field_names_unique_count=$(printf "%s" "$field_names" | sort -u | grep -c '')
     if [ "$field_names_count" != "$field_names_unique_count" ]; then
         printf "Found duplicate field names in JSON input. This may occur if there are multiple DNS records for a single value. This configuration is not supported by pbad.\\n"
         exit 1
