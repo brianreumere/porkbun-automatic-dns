@@ -45,7 +45,7 @@ Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXTIF] [-p KEYFILE|-a APIKEY,
 -i EXTIF: The name of your external network interface (optional, if provided uses ifconfig instead of the Porkbun API to determine external IP address)
 -p KEYFILE: Path to the file that contains your comma-separated Porkbun API key and secret key (defaults to ~/.porkbunapi)
 -a APIKEY,SECRETKEY: Your Porkbun API key and secret key, separated by a comma (optional, loaded from a file if not specified)
--l TTL: Set a custom TTL on records (optional, and only supported on LiveDNS)
+-l TTL: Set a custom TTL on records (optional, defaults to 10800)
 -d EXAMPLE.COM: The domain to create or update DNS records for (required)
 -r "RECORD-NAMES": A space-separated list of the name(s) of the A or AAAA record(s) to update or create (required)
 ```
