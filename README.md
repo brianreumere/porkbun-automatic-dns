@@ -22,7 +22,7 @@ The simplest way to install `pbad` is to [download the latest release](https://g
 To set up a crontab entry to run `pbad` on a schedule, store your API key and secret key in the `~/.porkbunapi` file, separated by a comma (run `chmod 600 ~/.porkbunapi` to make sure no other users have permissions to this file), and then run `crontab -e` and add a line similar to the following (this example will run `pbad` every 15 minutes and update the `@` and `www` records of the domain `example.net`):
 
 ```
-0,15,30,45 * * * * /home/brian/bin/pbad -5 -i em0 -d example.net -r "@ www"
+0,15,30,45 * * * * /home/brian/bin/pbad -d example.net -r "@ www"
 ```
 
 If you have [issues with the `openssl s_client` command hanging](https://github.com/brianreumere/gandi-automatic-dns/issues/31), and you have access to the `timeout` utility from GNU coreutils, you can precede the path to the `pbad` command with something like `timeout -k 10s 60s` (to send a `TERM` signal after 60 seconds and a `KILL` signal 10 seconds later if it's still running).
