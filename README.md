@@ -1,6 +1,6 @@
 # pbad
 
-This script is intended to be used as a cron job to maintain the accuracy of multiple A or AAAA DNS records for a [Porkbun](https://porkbun.com/)-managed domain. External IP address discovery is done via a network interface, [OpenDNS](http://www.opendns.com), or a custom command piped to standard input. The result is compared to the value of each record in `RECORD-NAMES`.
+This script is intended to be used as a cron job to maintain the accuracy of multiple A or AAAA DNS records for a [Porkbun](https://porkbun.com/)-managed domain. External IP address discovery is done via the Porkbun API, a network interface, or a custom command piped to standard input.
 
 This project is inspired by [gandi-automatic-dns](https://github.com/brianreumere/gandi-automatic-dns).
 
