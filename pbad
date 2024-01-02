@@ -193,7 +193,10 @@ check_api_error() {
 
 update() {
     while [ ! -z "$1" ]; do
-        new_record_json=$(rest "POST" "dns/editByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
+        if [ "$1" = "@" ]; then
+            subdomain=''
+        fi
+        new_record_json=$(rest "POST" "dns/editByNameType/${domain}/${record_type}/${subdomain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
         if [ "$debug" = "yes" ]; then
             printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
         fi
@@ -210,7 +213,10 @@ update() {
 
 create() {
     while [ ! -z "$1" ]; do
-        new_record_json=$(rest "POST" "dns/create/${domain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"name\": \"${1}\", \"type\": \"${record_type}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
+        if [ "$1" = "@" ]; then
+            subdomain=''
+        fi
+        new_record_json=$(rest "POST" "dns/create/${domain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"name\": \"${subdomain}\", \"type\": \"${record_type}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
         if [ "$debug" = "yes" ]; then
             printf "new_record_json:\\n---\\n%s\\n---\\n\\n" "$new_record_json"
         fi
@@ -228,7 +234,10 @@ create() {
 
 check() {
     while [ ! -z "$1" ]; do
-        record_json=$(rest "POST" "dns/retrieveByNameType/${domain}/${record_type}/${1}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\"}")
+        if [ "$1" = "@" ]; then
+            subdomain=''
+        fi
+        record_json=$(rest "POST" "dns/retrieveByNameType/${domain}/${record_type}/${subdomain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\"}")
         if [ "$debug" = "yes" ]; then
             printf "record_json:\\n---\\n%s\\n---\\n\\n" "$record_json"
         fi
