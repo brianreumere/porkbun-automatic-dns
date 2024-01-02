@@ -3,7 +3,7 @@
 usage() {
     printf "\\nporkbun-automatic-dns: Dynamic DNS shell script for Porkbun
 
-Usage: %s [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r \"RECORD-NAMES\"
+Usage: %s [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXTIF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r \"RECORD-NAMES\"
 
 -h: Print this usage info and exit
 -6: Update AAAA record(s) instead of A record(s)
@@ -11,9 +11,9 @@ Usage: %s [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY,S
 -t: Just print the updates that would be made without actually creating or updating any DNS records
 -e: Print debugging information to stdout
 -v: Print information to stdout even if an update isn't needed
--s: Use stdin instead of OpenDNS to determine external IP address
+-s: Use stdin instead of the Porkbun API to determine external IP address
 
--i EXT_IF: The name of your external network interface (optional, if provided uses ifconfig instead of OpenDNS to determine external IP address
+-i EXTIF: The name of your external network interface (optional, if provided uses ifconfig instead of the Porkbun API to determine external IP address)
 -p KEYFILE: Path to the file that contains your comma-separated Porkbun API key and secret key (defaults to ~/.porkbunapi)
 -a APIKEY,SECRETKEY: Your Porkbun API key and secret key, separated by a comma (optional, loaded from a file if not specified)
 -l TTL: Set a custom TTL on records (optional, and only supported on LiveDNS)
@@ -28,7 +28,7 @@ pbad version: ${pbad_version}\\n\\n" "$0"
 # Set script version
 #
 
-pbad_version="0.0.1"
+pbad_version="0.1.0"
 
 #
 # Process parameters
@@ -93,45 +93,35 @@ fi
 # Set API address
 #
 
-porkbun="porkbun.com:443"
+if [ "$record_type" = "A" ]; then
+    # Force IPv4 API usage if updating A records
+    porkbun="https://api-ipv4.porkbun.com/api/json/v3"
+else
+    porkbun="https://porkbun.com/api/json/v3"
+fi
 
 #
 # Function to call Porkbun's v3 API
 #
 # $1 is the HTTP verb. Only POST is used by the Porkbun API.
-# $2 is the API endpoint
-# $3 is the body of the request. If the verb is GET and a third parameter is
-#    provided, it is ignored.
+# $2 is the API endpoint.
+# $3 is the body of the request.
 #
 
 rest() {
+    rest_endpoint="${porkbun}/${2}"
     if [ "$debug" = "yes" ]; then
-        printf "REST call to endpoint:\\n---\\n%s\\n---\\n\\n" "$2" 1>&2
+        printf "REST call:\\n---\\nEndpoint: %s\\nData: %s\\n---\\n\\n" "$2" "$3" 1>&2
     fi
-    # Throw away third argument to function if verb is GET
-    if [ "$1" != "GET" ]; then
-        tmp_json="$3"
-    fi
-    tmp_request="${1} /api/json/v3/${2} HTTP/1.1
-User-Agent: Porkbun Automatic DNS/pbad shell script/${pbad_version}
-Host: $(printf "%s" "$porkbun" | cut -d : -f 1)
-Connection: close
-Content-Type: application/json
-Content-Length: $(printf "%s" "$tmp_json" | wc -c | tr -d "[:space:]")
-
-"
-    if [ "$1" != "GET" ]; then
-        tmp_message="${tmp_request}${tmp_json}"
-    else
-        tmp_message="$tmp_request"
-    fi
-    if [ "$debug" = "yes" ]; then
-        printf "Sending REST message tmp_message:\\n---\\n%s\\n---\\n\\n" "$tmp_message" 1>&2
-    fi
-    printf "%s" "$tmp_message" | openssl s_client -quiet -alpn h2 -connect "$porkbun" 2> /dev/null | tail -1
-    unset tmp_json
-    unset tmp_request
-    unset tmp_message
+    rest_result=$(curl \
+        -H "User-Agent: Porkbun Automatic DNS/pbad shell script/${pbad_version}" \
+        -H "Content-Type: application/json" \
+        --http2 \
+        --data "${3}" \
+        "$rest_endpoint")
+    printf "%s" "$rest_result"
+    unset rest_endpoint
+    unset rest_result
 }
 
 #
@@ -287,12 +277,9 @@ elif [ ! -z "$ext_if" ]; then
     ext_ip_method="ifconfig ${ext_if}"
     ext_ip=$(ifconfig "$ext_if" | sed -n "s/.*${inet} \(addr:\)* *${ip_regex}.*/\2/p" | head -1)
 else
-    ext_ip_method="OpenDNS"
-    if [ "$record_type" = "A" ]; then
-        ext_ip=$(dig -4 "$record_type" +short @resolver1.opendns.com myip.opendns.com)
-    else
-        ext_ip=$(dig "$record_type" +short @resolver1.opendns.com myip.opendns.com)
-    fi
+    ext_ip_method="Porkbun"
+    ping_json=$(rest "POST" "ping" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\"}")
+    ext_ip=$(get_json_field "yourIp" "$ping_json")
 fi
 if [ -z "$ext_ip" ]; then
     printf "Failed to determine external IP address with %s. See above error.\\n" "$ext_ip_method"

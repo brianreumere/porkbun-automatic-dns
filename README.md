@@ -11,12 +11,9 @@ This project is inspired by [gandi-automatic-dns](https://github.com/brianreumer
 # Requirements
 
   * Bourne shell
-  * OpenSSL or [LibreSSL](http://www.libressl.org)
+  * [curl](https://curl.se/) with HTTP2 support (7.33.0 or greater)
 
-If you're using an OS that doesn't include the `ifconfig` or `dig` commands you have three options:
-  * Install a package that provides the `dig` command, commonly `bind-tools` or `dnsutils` (to use IP discovery via OpenDNS)
-  * Install a package that provides the `ifconfig` command, commonly `net-tools` (to use IP discovery via a network interface)
-  * Use the `-s` flag and pipe a custom command that outputs your external IP address to `gad`, e.g., ```curl ipinfo.io/ip | gad -s -a APIKEY -d EXAMPLE.COM -r "RECORD-NAMES"```
+By default, the script will automatically determine your public IP address using the [`ping` endpoint of the Porkbun API](https://porkbun.com/api/json/v3/documentation#Authentication). For most use cases, this default behavior should be fine. If you'd like to determine your public IP address from a network interface (using the `-i` flag) and your OS doesn't include the `ifconfig` command, you should install a package that provides it (commonly `net-tools`). You may also use the `-s` flag to pipe the output of an arbitrary command that determines your IP address to the standard input of `gad` (e.g., `curl ipinfo.io/ip | gad -s -a APIKEY,SECRETKEY -d EXAMPLE.com -r "RECORD-NAMES"`.
 
 # Installation
 
@@ -37,7 +34,7 @@ The Porkbun API's rate limits are poorly documented, but allegedly are about [2 
 Run `pbad` with no options or `pbad -h` to view this usage info from the command line.
 
 ```
-Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r "RECORD-NAMES"
+Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXTIF] [-p KEYFILE|-a APIKEY,SECRETKEY] [-l TTL] -d EXAMPLE.COM -r "RECORD-NAMES"
 
 -h: Print this usage info and exit
 -6: Update AAAA record(s) instead of A record(s)
@@ -45,9 +42,9 @@ Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXT_IF] [-p KEYFILE|-a APIKEY
 -t: Just print the updates that would be made without actually creating or updating any DNS records
 -e: Print debugging information to stdout
 -v: Print information to stdout even if an update isn't needed
--s: Use stdin instead of OpenDNS to determine external IP address
+-s: Use stdin instead of the Porkbun API to determine external IP address
 
--i EXT_IF: The name of your external network interface (optional, if provided uses ifconfig instead of OpenDNS to determine external IP address
+-i EXTIF: The name of your external network interface (optional, if provided uses ifconfig instead of the Porkbun API to determine external IP address)
 -p KEYFILE: Path to the file that contains your comma-separated Porkbun API key and secret key (defaults to ~/.porkbunapi)
 -a APIKEY,SECRETKEY: Your Porkbun API key and secret key, separated by a comma (optional, loaded from a file if not specified)
 -l TTL: Set a custom TTL on records (optional, and only supported on LiveDNS)
