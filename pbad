@@ -128,7 +128,7 @@ Content-Length: $(printf "%s" "$tmp_json" | wc -c | tr -d "[:space:]")
     if [ "$debug" = "yes" ]; then
         printf "Sending REST message tmp_message:\\n---\\n%s\\n---\\n\\n" "$tmp_message" 1>&2
     fi
-    printf "%s" "$tmp_message" | openssl s_client -quiet -connect "$porkbun" 2> /dev/null | tail -1
+    printf "%s" "$tmp_message" | openssl s_client -quiet -alpn h2 -connect "$porkbun" 2> /dev/null | tail -1
     unset tmp_json
     unset tmp_request
     unset tmp_message
