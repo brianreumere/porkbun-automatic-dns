@@ -25,7 +25,7 @@ To set up a crontab entry to run `pbad` on a schedule, store your API key and se
 0,15,30,45 * * * * /home/brian/bin/pbad -d example.net -r "@ www"
 ```
 
-The Porkbun API's rate limits are poorly documented, but allegedly are about [2 requests per second or 60 requests per minute](https://github.com/cullenmcdermott/terraform-provider-porkbun/issues/23#issuecomment-1366859999). The `pbad` is hardcoded to sleep for 1 second before each API call. As long as you aren't updating an excessive number of records, you should be able to run `pbad` more frequently than every 15 minutes if needed.
+The Porkbun API's rate limits are poorly documented, but allegedly are about [2 requests per second or 60 requests per minute](https://github.com/cullenmcdermott/terraform-provider-porkbun/issues/23#issuecomment-1366859999). The `pbad` script is hardcoded to sleep for 1 second before each API call. As long as you aren't updating an excessive number of records, you should be able to run `pbad` more frequently than every 15 minutes if needed.
 
 # Command-line usage
 
@@ -56,5 +56,4 @@ Usage: pbad [-h] [-6] [-f] [-t] [-e] [-v] [-s] [-i EXTIF] [-p KEYFILE|-a APIKEY,
 rest "verb" "apiEndpoint" "body"
 ```
 
-The `rest` function can call arbitrary endpoints of [Porkbun's v3 API](https://porkbun.com/api/json/v3/documentation). The function expects a third parameter to use as the body of the `POST` request. Your Porkbun API key and secret key from the command line, the file specified by the `-p` flag, or the `~/.porkbunapi` file are automatically included in requests.
-
+The `rest` function can call arbitrary endpoints of [Porkbun's v3 API](https://porkbun.com/api/json/v3/documentation). The function only accepts `POST` as the first argument, and requires a third parameter to use as the body of the `POST` request. Your Porkbun API key and secret key from the command line, the file specified by the `-p` flag, or the `~/.porkbunapi` file are automatically included in requests.

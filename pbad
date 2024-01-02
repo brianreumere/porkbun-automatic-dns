@@ -109,6 +109,10 @@ fi
 #
 
 rest() {
+    if [ "$1" != "POST" ]; then
+        printf "rest() called with non-POST method. This is not supported.\\n"
+        exit 1
+    fi
     rest_endpoint="${porkbun}/${2}"
     if [ "$debug" = "yes" ]; then
         printf "REST call:\\n---\\nEndpoint: %s\\nData: %s\\n---\\n\\n" "$2" "$3" 1>&2
@@ -118,6 +122,7 @@ rest() {
     rest_result=$(curl \
         --silent \
         --show-error \
+        --request "$1" \
         -H "User-Agent: Porkbun Automatic DNS/pbad shell script/${pbad_version}" \
         -H "Content-Type: application/json" \
         --http2 \
