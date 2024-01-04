@@ -25,7 +25,7 @@ To set up a crontab entry to run `pbad` on a schedule, store your API key and se
 0,15,30,45 * * * * /home/brian/porkbun-automatic-dns/pbad -d example.net -r "@ www"
 ```
 
-The [ansible-role-porkbun-automatic-dns Ansible role](https://github.com/brianreumere/ansible-role-porkbun-automatic-dns) is also available if you want to deploy `pbad` via Ansible.
+The [porkbun-automatic-dns Ansible role](https://github.com/brianreumere/ansible-role-porkbun-automatic-dns) is also available if you want to deploy `pbad` via Ansible.
 
 The Porkbun API's rate limits are poorly documented, but allegedly are about [2 requests per second or 60 requests per minute](https://github.com/cullenmcdermott/terraform-provider-porkbun/issues/23#issuecomment-1366859999). The `pbad` script is hardcoded to sleep for 1 second before each API call. As long as you aren't updating an excessive number of records, you should be able to run `pbad` more frequently than every 15 minutes if needed.
 
