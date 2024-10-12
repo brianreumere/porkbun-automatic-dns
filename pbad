@@ -28,7 +28,7 @@ pbad version: ${pbad_version}\\n\\n" "$0"
 # Set script version
 #
 
-pbad_version="1.0.0"
+pbad_version="1.0.1"
 
 #
 # Process parameters
@@ -97,7 +97,7 @@ if [ "$record_type" = "A" ]; then
     # Force IPv4 API usage if updating A records
     porkbun="https://api-ipv4.porkbun.com/api/json/v3"
 else
-    porkbun="https://porkbun.com/api/json/v3"
+    porkbun="https://api.porkbun.com/api/json/v3"
 fi
 
 #
