@@ -202,6 +202,8 @@ update() {
     while [ ! -z "$1" ]; do
         if [ "$1" = "@" ]; then
             subdomain=''
+        else
+            subdomain="$1"
         fi
         new_record_json=$(rest "POST" "dns/editByNameType/${domain}/${record_type}/${subdomain}" "{\"secretapikey\": \"${secretkey}\", \"apikey\": \"${apikey}\", \"content\": \"${ext_ip}\", \"ttl\": \"${new_ttl}\"}")
         if [ "$debug" = "yes" ]; then
